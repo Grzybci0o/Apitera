@@ -13,6 +13,7 @@ import org.apitera.rekru.Response.ErrorResponse;
 import org.apitera.rekru.Response.GitHubRepositoryResponse;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -60,12 +61,11 @@ public class GitHubResource {
                             )
                             .collect(Collectors.toList());
 
-                    return Uni.combine().all().unis(responseList).combinedWith(responses -> {
-                        List<GitHubRepositoryResponse> filteredResponse = responses.stream()
-                                .map(response -> (GitHubRepositoryResponse) response)
-                                .collect(Collectors.toList());
-                        return Response.ok(filteredResponse).build();
-                    });
+                    return Uni.join().all(responseList).andCollectFailures()
+                            .onItem().transform(responses -> {
+                                List<GitHubRepositoryResponse> filteredResponse = new ArrayList<>(responses);
+                                return Response.ok(filteredResponse).build();
+                            });
                 })
                 .onFailure().recoverWithItem(t -> {
                     int status = getHttpStatusFromException(t);
